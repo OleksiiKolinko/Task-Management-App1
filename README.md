@@ -38,7 +38,7 @@ This application helps organise work on projects, make tasks on projects, monicu
 }
 ```
 ### User controller
-* PUT: /api/users//{userId}/role - After register the user has role WITHOUT_ROLE, and the admin receive message about new registered user, and only admin can put roles which needs for particular user. After admin updated roles for user, the user receive message about it. There are four roles: ROLE_ADMIN, ROLE_MANAGER, ROLE_USER, WITHOUT_ROLE. An example:
+* PATCH: /api/users//{userId}/role - After register the user has role WITHOUT_ROLE, and the admin receive message about new registered user, and only admin can put roles which needs for particular user. After admin updated roles for user, the user receive message about it. There are four roles: ROLE_ADMIN, ROLE_MANAGER, ROLE_USER, WITHOUT_ROLE. An example:
 ```json
 {
   "roles": [
@@ -47,7 +47,7 @@ This application helps organise work on projects, make tasks on projects, monicu
 }
 ```
 * GET: /api/users/me - Showing profile info authenticated user.
-* PUT: /api/users/me - Update profile info authenticated user. An example:
+* PATCH: /api/users/me - Update profile info authenticated user. An example:
 ```json
 {
   "username": "user",
@@ -68,9 +68,9 @@ This application helps organise work on projects, make tasks on projects, monicu
   "endDate": "2024-05-20"
 }
 ```
-* GET: /api/projects - Get a list of all available projects. It allowed for users with ROLE_USER.
-* GET: /api/projects/{projectId} - Get a project by id. It allowed for users with ROLE_USER.
-* PUT: /api/projects/{projectId} - Update project by id of that project. There are three statuses INITIATED, IN_PROGRESS, COMPLETED. It allowed only for users with ROLE_MANAGER. An example:
+* GET: /api/projects - Get a list of all available projects. It allowed for users with ROLE_USER and ROLE_MANAGER.
+* GET: /api/projects/{projectId} - Get a project by id. It allowed for users with ROLE_USER and ROLE_MANAGER.
+* PATCH: /api/projects/{projectId} - Update project by id of that project. There are three statuses INITIATED, IN_PROGRESS, COMPLETED. It allowed only for users with ROLE_MANAGER. An example:
 ```json
 {
   "name": "projectName",
@@ -94,9 +94,9 @@ This application helps organise work on projects, make tasks on projects, monicu
   "assignee": 2
 }
 ```
-* GET: /api/tasks?page={0}&size={10}&projectIds={1}&projectNames={projectName}&taskIds={1}&names={taskName}&assigneeIds={2}&assigneeNames={user} - Get a list of all available tasks. There are filters. It allowed for users with ROLE_USER.
-* GET: /api/tasks/{taskId} - Get a task by id. It allowed for users with ROLE_USER.
-* PUT: /api/tasks/{taskId} - Update task by id of that task. By using the same body as in case create new task. After updated the assignee receives message about it. It allowed only for users with ROLE_MANAGER.
+* GET: /api/tasks?page={0}&size={10}&projectIds={1}&projectNames={projectName}&taskIds={1}&names={taskName}&assigneeIds={2}&assigneeNames={user} - Get a list of all available tasks. There are filters. It allowed for users with ROLE_USER and ROLE_MANAGER.
+* GET: /api/tasks/{taskId} - Get a task by id. It allowed for users with ROLE_USER and ROLE_MANAGER.
+* PATCH: /api/tasks/{taskId} - Update task by id of that task. By using the same body as in case create new task. After updated the assignee receives message about it. It allowed only for users with ROLE_MANAGER.
 * DELETE: /api/tasks/{taskId} - Delete task by id of that task. By using soft delete concept. And delete all comments and attachments for this task. If this task added to particular label, they remove from this label. After deleted the assignee receives message about it. It allowed only for users with ROLE_MANAGER.
 ### Attachment controller
 * POST: /api/attachments - Upload an attachment to a task. The file gets uploaded to Dropbox and application store the Dropbox File ID in database. The filename must be unique. The assignee or managers receive messages about it, it depend of who uploaded file. The user with ROLE_USER can upload files only for tasks where he assignee but the user with ROLE_MANAGER can upload files for all tasks. An example:
@@ -111,8 +111,8 @@ This application helps organise work on projects, make tasks on projects, monicu
   "text": "text"
 }
 ```
-* GET: /api/comments?page={0}&size={10}&projectIds={1}&projectNames={projectName}&taskIds={1}&names={taskName}&assigneeIds={2}&assigneeNames={username} - Get all comments for tasks. There are filters. It allowed for users with ROLE_USER.
-* DELETE: /api/comments/{commentId} - Delete comment by id of that comment. By using soft delete concept. The assignee or managers receive messages about it, it depend of who remove comment. You can remove only yours comments. It allowed for users with ROLE_USER.
+* GET: /api/comments?page={0}&size={10}&projectIds={1}&projectNames={projectName}&taskIds={1}&names={taskName}&assigneeIds={2}&assigneeNames={username} - Get all comments for tasks. There are filters. It allowed for users with ROLE_USER and ROLE_MANAGER.
+* DELETE: /api/comments/{commentId} - Delete comment by id of that comment. By using soft delete concept. The assignee or managers receive messages about it, it depend of who remove comment. You can remove only yours comments. It allowed for users with ROLE_USER and ROLE_MANAGER.
 ### Label controller
 * POST: /api/labels - Create new label. Name - is uniqure. It allowed only for users with ROLE_MANAGER. An example:
 ```json
@@ -124,8 +124,8 @@ This application helps organise work on projects, make tasks on projects, monicu
   ]
 }
 ```
-* GET: /api/labels - Get a list of all available labels. It allowed for users with ROLE_USER.
-* PUT: /api/labels//{labelId} - Update label by id of that label. By using the same body as in case create new label. It allowed only for users with ROLE_MANAGER.
+* GET: /api/labels - Get a list of all available labels. It allowed for users with ROLE_USER and ROLE_MANAGER.
+* PATCH: /api/labels//{labelId} - Update label by id of that label. By using the same body as in case create new label. It allowed only for users with ROLE_MANAGER.
 * DELETE: /api/labels//{labelId} - Delete label by id of that label. It allowed only for users with ROLE_MANAGER.
 ## How to use the application
 1. Make sure you have installed next tools:

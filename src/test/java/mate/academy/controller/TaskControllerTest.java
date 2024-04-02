@@ -4,13 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.SneakyThrows;
@@ -134,17 +133,19 @@ public class TaskControllerTest {
     @Sql(scripts = ADD_DATA_TASKS, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = REMOVE_ALL_TASK, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void updateTaskById_Valid_ReturnResponseTaskDto() {
-        final MvcResult result = mockMvc.perform(put(URL_TASK_1).content(objectMapper
+        final MvcResult result = mockMvc.perform(patch(URL_TASK_1).content(objectMapper
                         .writeValueAsString(new TaskDtoCreate(UPDATE_TASK_NAME, TASK_DESCRIPTION,
                                 MEDIUM, IN_PROGRESS, DUE_DATE, ONE_ID, TWO_ID))).contentType(
                                         MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
         final ResponseTaskDto actual = objectMapper.readValue(result.getResponse()
                 .getContentAsString(), ResponseTaskDto.class);
-        assertThat(actual).isEqualTo(getUpdatedResponseTaskDto());
+        assertThat(actual).isEqualTo(new ResponseTaskDto(ONE_ID, UPDATE_TASK_NAME,TASK_DESCRIPTION,
+                MEDIUM, IN_PROGRESS, DUE_DATE, getResponseProjectDto(),
+                getUserResponseDtoWithRole()));
     }
 
-    @WithMockUser(roles = {MANAGER, USER})
+    @WithMockUser(roles = MANAGER)
     @SneakyThrows
     @Test
     @DisplayName("Verify deleteById() method works")
@@ -160,44 +161,14 @@ public class TaskControllerTest {
                 .andExpect(status().isInternalServerError());
     }
 
-    private ResponseTaskDto getUpdatedResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(UPDATE_TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(getResponseProjectDto());
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
-    }
-
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(getResponseProjectDto());
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, getResponseProjectDto(), getUserResponseDtoWithRole());
     }
 
     private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new UserResponseDtoWithRole(TWO_ID, USERNAME, EMAIL, FIRST_NAME, LAST_NAME,
+                Set.of(ROLE_USER, ROLE_MANAGER));
     }
 
     private ResponseProjectDto getResponseProjectDto() {

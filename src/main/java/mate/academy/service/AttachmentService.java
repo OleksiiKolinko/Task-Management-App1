@@ -14,5 +14,4 @@ public interface AttachmentService {
             Pageable pageable, TaskSearchParameters searchParameters, Long userId);
 
     void deleteById(Long attachmentId, Long userId);
-
 }

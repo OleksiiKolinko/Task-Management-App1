@@ -36,7 +36,6 @@ public class SpringSecurityWebAuxTestConfig {
     @Bean
     @Primary
     public UserDetailsService userDetailsService() {
-        final User user = new User();
         final Role role = new Role();
         role.setId(TWO_ID);
         role.setName(Role.RoleName.ROLE_MANAGER);
@@ -50,21 +49,10 @@ public class SpringSecurityWebAuxTestConfig {
         roles.add(role);
         roles.add(role1);
         roles.add(role2);
-        user.setId(TWO_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(roles);
-        final User user1 = new User();
-        user1.setId(THREE_ID);
-        user1.setUsername(USERNAME_1);
-        user1.setPassword(PASSWORD);
-        user1.setEmail(EMAIL_1);
-        user1.setFirstName(FIRST_NAME);
-        user1.setLastName(LAST_NAME);
-        user1.setRoles(roles);
+        final User user = User.builder().id(TWO_ID).username(USERNAME).password(PASSWORD)
+                .email(EMAIL).firstName(FIRST_NAME).lastName(LAST_NAME).roles(roles).build();
+        final User user1 = User.builder().id(THREE_ID).username(USERNAME_1).password(PASSWORD)
+                .email(EMAIL_1).firstName(FIRST_NAME).lastName(LAST_NAME).roles(roles).build();
         Map<String, User> users = new HashMap<>();
         users.put(USERNAME, user);
         users.put(USERNAME_1, user1);

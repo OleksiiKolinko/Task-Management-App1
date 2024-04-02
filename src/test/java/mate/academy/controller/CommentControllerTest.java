@@ -10,8 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.SneakyThrows;
@@ -113,7 +111,8 @@ public class CommentControllerTest {
     @Sql(scripts = ADD_COMMENTS, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = REMOVE_COMMENTS, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void addComment_Valid_ReturnCommentResponseDto() {
-        final CommentResponseDto expect = getCommentResponseDto();
+        final CommentResponseDto expect = new CommentResponseDto(getResponseTaskDto(), List.of(
+                new CommentDto(ONE_ID, LocalDateTime.now().toString(), USERNAME, TEXT_1)));
         final String jsonRequest = objectMapper
                 .writeValueAsString(new CommentRequestDto(ONE_ID, TEXT_1));
         final MvcResult result = mockMvc.perform(post(URL_COMMENTS).content(jsonRequest)
@@ -173,38 +172,10 @@ public class CommentControllerTest {
                         .doesNotExist());
     }
 
-    private CommentResponseDto getCommentResponseDto() {
-        final CommentDto commentDto1 = new CommentDto(ONE_ID,
-                LocalDateTime.now().toString(), USERNAME, TEXT_1);
-        final List<CommentDto> commentDtos = new ArrayList<>();
-        commentDtos.add(commentDto1);
-        return new CommentResponseDto(getResponseTaskDto(),commentDtos);
-    }
-
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
-                START_DATE, END_DATE, INITIATED));
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
-    }
-
-    private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
+                START_DATE, END_DATE, INITIATED), new UserResponseDtoWithRole(TWO_ID, USERNAME,
+                EMAIL, FIRST_NAME, LAST_NAME, Set.of(ROLE_USER)));
     }
 }

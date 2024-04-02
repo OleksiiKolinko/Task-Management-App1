@@ -5,14 +5,13 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.SneakyThrows;
@@ -120,7 +119,7 @@ public class LabelControllerTest {
     @Sql(scripts = ADD_DATA_FIND_ALL, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = REMOVE_ALL_LABEL, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void updateById_Valid_ReturnResponseLabelDto() {
-        final MvcResult result = mockMvc.perform(put(URL_LABEL_1).content(objectMapper
+        final MvcResult result = mockMvc.perform(patch(URL_LABEL_1).content(objectMapper
                         .writeValueAsString(new CreateLabelDto(UPDATE_LABEL_NAME, COLOR,
                                 Set.of(ONE_ID)))).contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
@@ -130,7 +129,7 @@ public class LabelControllerTest {
                 ONE_ID, UPDATE_LABEL_NAME, COLOR, Set.of(getResponseTaskDto())));
     }
 
-    @WithMockUser(roles = {MANAGER, USER})
+    @WithMockUser(roles = MANAGER)
     @SneakyThrows
     @Test
     @DisplayName("Verify deleteById() method works")
@@ -150,30 +149,9 @@ public class LabelControllerTest {
     }
 
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
-                START_DATE, END_DATE, INITIATED));
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
-    }
-
-    private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
+                START_DATE, END_DATE, INITIATED), new UserResponseDtoWithRole(TWO_ID, USERNAME,
+                EMAIL, FIRST_NAME, LAST_NAME, Set.of(ROLE_USER, ROLE_MANAGER)));
     }
 }

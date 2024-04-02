@@ -1,10 +1,12 @@
 package mate.academy.dto.task;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import mate.academy.dto.project.ResponseProjectDto;
 import mate.academy.dto.user.UserResponseDtoWithRole;
 
 @Data
+@AllArgsConstructor
 public class ResponseTaskDto {
     private Long id;
     private String name;

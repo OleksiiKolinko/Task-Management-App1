@@ -3,11 +3,10 @@ package mate.academy.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.HashSet;
 import java.util.Set;
 import lombok.SneakyThrows;
 import mate.academy.config.SpringSecurityWebAuxTestConfig;
@@ -66,7 +65,7 @@ public class UserControllerTest {
     @Sql(scripts = ADD_DATA_USER, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = REMOVE_ALL_USER, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void updateRole_Valid_ReturnUserResponseDtoWithRole() {
-        final MvcResult result = mockMvc.perform(put(URL_USERS_3_ROLE).content(objectMapper
+        final MvcResult result = mockMvc.perform(patch(URL_USERS_3_ROLE).content(objectMapper
                         .writeValueAsString(new RoleDto(Set.of(ROLE_MANAGER, ROLE_USER))))
                 .contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk()).andReturn();
         final UserResponseDtoWithRole actual = objectMapper.readValue(result.getResponse()
@@ -95,41 +94,19 @@ public class UserControllerTest {
     @Sql(scripts = ADD_DATA_PROFILE_INFO, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = REMOVE_ALL_USER, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void updateProfileInfo_Valid_ReturnUserResponseDtoWithRole() {
-        final MvcResult result = mockMvc.perform(put(URL_USER_ME).content(objectMapper
+        final MvcResult result = mockMvc.perform(patch(URL_USER_ME).content(objectMapper
                         .writeValueAsString(new UserRegistrationRequestDto(UPDATE_USERNAME,
                                 PASSWORD, PASSWORD, EMAIL, FIRST_NAME, LAST_NAME))).contentType(
                                         MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()).andReturn();
         final UserResponseDtoWithRole actual = objectMapper.readValue(result.getResponse()
                 .getContentAsString(), UserResponseDtoWithRole.class);
-        assertThat(actual).isEqualTo(getUpdatedUserResponseDtoWithRole());
-    }
-
-    private UserResponseDtoWithRole getUpdatedUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(THREE_ID);
-        userResponseDto.setUsername(UPDATE_USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_MANAGER);
-        roleDtos.add(ROLE_USER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        assertThat(actual).isEqualTo(new UserResponseDtoWithRole(THREE_ID, UPDATE_USERNAME, EMAIL,
+                FIRST_NAME, LAST_NAME, Set.of(ROLE_MANAGER, ROLE_USER)));
     }
 
     private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(THREE_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_MANAGER);
-        roleDtos.add(ROLE_USER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new UserResponseDtoWithRole(THREE_ID, USERNAME, EMAIL, FIRST_NAME, LAST_NAME,
+                Set.of(ROLE_MANAGER, ROLE_USER));
     }
 }

@@ -14,7 +14,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -83,7 +82,8 @@ public class AttachmentServiceTest {
     private static final String LINK_DOWNLOAD = "linkDownload";
     private static final String ROLE_MANAGER = "ROLE_MANAGER";
     private static final Long TWO_ID = 2L;
-    private static final int TWO = 2;
+    private static final Role.RoleName ROLE_NAME_MANAGER = Role.RoleName.ROLE_MANAGER;
+    private static final Role.RoleName ROLE_NAME_USER = Role.RoleName.ROLE_USER;
     @Mock
     private TaskRepository taskRepository;
     @Mock
@@ -102,6 +102,8 @@ public class AttachmentServiceTest {
     private TaskMapper taskMapper;
     @Mock
     private PaginationUtil paginationUtil;
+    @Mock
+    private EmailMessageUtil emailMessageUtil;
     @InjectMocks
     private AttachmentServiceImpl attachmentService;
 
@@ -138,11 +140,12 @@ public class AttachmentServiceTest {
     public void getAllFiles_ValidFile_ReturnAllAttachmentsResponseDto() {
         final Page<AllAttachmentsResponseDto> expect = getPageAllAttachmentsResponseDto();
         TaskSearchParameters taskSearchParameters = getTaskSearchParameters();
+        final Task task = getTask();
+        task.getAttachments().add(getAttachment());
         when(userRepository.findById(anyLong())).thenReturn(Optional.of(getAssignee()));
         when(taskRepository.findAll(taskSpecificationBuilder
-                .build(any(TaskSearchParameters.class)))).thenReturn(List.of(getTask()));
+                .build(any(TaskSearchParameters.class)))).thenReturn(List.of(task));
         when(roleRepository.findById(anyLong())).thenReturn(Optional.of(getRoleManager()));
-        when(attachmentRepository.findAllByTaskId(anyLong())).thenReturn(List.of(getAttachment()));
         when(taskMapper.toTaskResponseDto(any(Task.class))).thenReturn(getResponseTaskDto());
         when(attachmentMapper.toAttachmentDownloadDto(any(Attachment.class)))
                 .thenReturn(getListAttachmentResponseDownloadDto().get(ZERO));
@@ -156,7 +159,6 @@ public class AttachmentServiceTest {
         verify(taskRepository, times(ONE))
                 .findAll(taskSpecificationBuilder.build(any(TaskSearchParameters.class)));
         verify(roleRepository, times(ONE)).findById(anyLong());
-        verify(attachmentRepository, times(TWO)).findAllByTaskId(anyLong());
         verify(taskMapper, times(ONE)).toTaskResponseDto(any(Task.class));
         verify(attachmentMapper, times(ONE)).toAttachmentDownloadDto(any(Attachment.class));
         verify(dropboxService, times(ONE)).download(anyString());
@@ -201,116 +203,54 @@ public class AttachmentServiceTest {
     }
 
     private List<AllAttachmentsResponseDto> getListAllAttachmentsResponseDto() {
-        final List<AllAttachmentsResponseDto> attachmentsResponseDtos = new ArrayList<>();
-        final AllAttachmentsResponseDto allAttachmentsResponseDto = new AllAttachmentsResponseDto(
-                getResponseTaskDto(), getListAttachmentResponseDownloadDto());
-        attachmentsResponseDtos.add(allAttachmentsResponseDto);
-        return attachmentsResponseDtos;
+        return List.of(new AllAttachmentsResponseDto(getResponseTaskDto(),
+                getListAttachmentResponseDownloadDto()));
     }
 
     private List<AttachmentResponseDownloadDto> getListAttachmentResponseDownloadDto() {
-        final AttachmentResponseDownloadDto responseDownloadDto =
-                new AttachmentResponseDownloadDto();
-        responseDownloadDto.setId(ONE_ID);
-        responseDownloadDto.setFilename(FILE_NAME);
-        responseDownloadDto.setUploadDate(UPLOAD_DATE);
-        responseDownloadDto.setDropboxFileId(DROPBOX_FILE_ID);
-        responseDownloadDto.setDownload(LINK_DOWNLOAD);
-        final List<AttachmentResponseDownloadDto> attachmentResponseDownloadDtos
-                = new ArrayList<>();
-        attachmentResponseDownloadDtos.add(responseDownloadDto);
-        return attachmentResponseDownloadDtos;
+        return List.of(new AttachmentResponseDownloadDto(ONE_ID, FILE_NAME, UPLOAD_DATE,
+                DROPBOX_FILE_ID, LINK_DOWNLOAD));
     }
 
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
-                START_DATE, END_DATE, IN_PROGRESS));
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
-    }
-
-    private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(ONE_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
+                START_DATE, END_DATE, IN_PROGRESS), new UserResponseDtoWithRole(ONE_ID, USERNAME,
+                EMAIL, FIRST_NAME, LAST_NAME, Set.of(ROLE_USER, ROLE_MANAGER)));
     }
 
     private Attachment getAttachment() {
-        final Attachment attachment = new Attachment();
-        attachment.setId(ONE_ID);
-        attachment.setTask(getTask());
-        attachment.setFilename(FILE_NAME);
-        attachment.setDropboxFileId(DROPBOX_FILE_ID);
-        attachment.setUploadDate(
-                LocalDateTime.of(UPLOAD_YEAR, Month.JANUARY,ONE,ZERO,ZERO,ZERO,ZERO));
-        return attachment;
+        return Attachment.builder().id(ONE_ID).task(getTask()).filename(FILE_NAME)
+                .dropboxFileId(DROPBOX_FILE_ID).uploadDate(LocalDateTime.of(
+                        UPLOAD_YEAR, Month.JANUARY,ONE,ZERO,ZERO,ZERO,ZERO)).build();
     }
 
     private Task getTask() {
-        final Task task = new Task();
-        task.setId(ONE_ID);
-        task.setName(TASK_NAME);
-        task.setDescription(TASK_DESCRIPTION);
-        task.setPriority(Task.Priority.MEDIUM);
-        task.setStatus(Task.Status.IN_PROGRESS);
-        task.setDueDate(LocalDate.of(DUE_YEAR,ONE,ONE));
-        task.setProject(getProject());
-        task.setAssignee(getAssignee());
-        return task;
+        return Task.builder().id(ONE_ID).name(TASK_NAME).description(TASK_DESCRIPTION).priority(
+                Task.Priority.MEDIUM).status(Task.Status.IN_PROGRESS).dueDate(LocalDate.of(
+                        DUE_YEAR,ONE,ONE)).project(Project.builder().id(ONE_ID).name(PROJECT_NAME)
+                        .description(PROJECT_DESCRIPTION)
+                .startDate(LocalDate.of(START_YEAR,ONE,ONE))
+                        .endDate(LocalDate.of(END_YEAR,ONE, ONE)).status(Project.Status.IN_PROGRESS)
+                        .build()).assignee(getAssignee()).attachments(new ArrayList<>()).build();
     }
 
     private User getAssignee() {
-        final User user = new User();
-        user.setId(ONE_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(getRoles());
-        return user;
+        return User.builder().id(ONE_ID).username(USERNAME).password(PASSWORD).email(EMAIL)
+                .firstName(FIRST_NAME).lastName(LAST_NAME).roles(getRoles()).build();
     }
 
     private Set<Role> getRoles() {
         final Role roleUser = new Role();
         roleUser.setId(ONE_ID);
-        roleUser.setName(Role.RoleName.ROLE_USER);
-        Set<Role> roles = new HashSet<>();
-        roles.add(roleUser);
-        roles.add(getRoleManager());
-        return roles;
+        roleUser.setName(ROLE_NAME_USER);
+        return Set.of(roleUser, getRoleManager());
     }
 
     private Role getRoleManager() {
         final Role roleManager = new Role();
         roleManager.setId(TWO_ID);
-        roleManager.setName(Role.RoleName.ROLE_MANAGER);
+        roleManager.setName(ROLE_NAME_MANAGER);
         return roleManager;
-    }
-
-    private Project getProject() {
-        final Project project = new Project();
-        project.setId(ONE_ID);
-        project.setName(PROJECT_NAME);
-        project.setDescription(PROJECT_DESCRIPTION);
-        project.setStartDate(LocalDate.of(START_YEAR,ONE,ONE));
-        project.setEndDate(LocalDate.of(END_YEAR,ONE, ONE));
-        project.setStatus(Project.Status.IN_PROGRESS);
-        return project;
     }
 }

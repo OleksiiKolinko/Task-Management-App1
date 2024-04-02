@@ -12,9 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,9 +36,10 @@ public class LabelController {
     }
 
     @Operation(summary = "Retrieve labels",
-            description = "Showing all labels. This allowed for users with ROLE_USER")
+            description = "Showing all labels. This allowed for users with ROLE_USER"
+                    + " and ROLE_MANAGER")
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public List<ResponseLabelDto> findAll(Pageable pageable) {
         return labelService.findAll(pageable);
     }
@@ -46,7 +47,7 @@ public class LabelController {
     @Operation(summary = "Update label",
             description = "Update label by particular id."
                     + " This only allowed for users with ROLE_MANAGER")
-    @PutMapping("/{labelId}")
+    @PatchMapping("/{labelId}")
     @PreAuthorize("hasRole('ROLE_MANAGER')")
     public ResponseLabelDto updateById(@PathVariable Long labelId,
                                        @RequestBody @Valid CreateLabelDto createLabelDto) {

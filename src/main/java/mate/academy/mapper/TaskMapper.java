@@ -5,7 +5,7 @@ import mate.academy.dto.task.ResponseTaskDto;
 import mate.academy.model.Task;
 import org.mapstruct.Mapper;
 
-@Mapper(config = MapperConfig.class)
+@Mapper(config = MapperConfig.class, uses = UserMapper.class)
 public interface TaskMapper {
     ResponseTaskDto toTaskResponseDto(Task save);
 }

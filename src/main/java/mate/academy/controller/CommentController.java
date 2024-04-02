@@ -30,20 +30,19 @@ public class CommentController {
     private final CommentService commentService;
 
     @Operation(summary = "Add comment",
-            description = "Add comment can users with ROLE_USER")
+            description = "Add comment can users with ROLE_USER and ROLE_MANAGER")
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public CommentResponseDto addComment(Authentication authentication,
                                          @RequestBody @Valid CommentRequestDto requestDto) {
-        User user = (User) authentication.getPrincipal();
-        return commentService.save(user.getId(), requestDto);
+        return commentService.save(getUserId(authentication), requestDto);
     }
 
     @Operation(summary = "Retrieve comments",
             description = "Showing all comments. Can search by taskIds."
-                    + " This allowed for users with ROLE_USER")
+                    + " This allowed for users with ROLE_USER and ROLE_MANAGER")
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public Page<CommentResponseDto> getAllComments(TaskSearchParameters searchParameters,
                                                    Pageable pageable) {
         return commentService.getAllComments(searchParameters, pageable);
@@ -51,11 +50,15 @@ public class CommentController {
 
     @Operation(summary = "Delete comment",
             description = "Delete comment by particular id."
-                    + " This allowed for users with ROLE_USER")
+                    + " This allowed for users with ROLE_USER and ROLE_MANAGER")
     @DeleteMapping("/{commentId}")
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public void deleteById(@PathVariable Long commentId, Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        commentService.deleteById(commentId, user.getId());
+        commentService.deleteById(commentId, getUserId(authentication));
+    }
+
+    private Long getUserId(Authentication authentication) {
+        final User user = (User) authentication.getPrincipal();
+        return user.getId();
     }
 }

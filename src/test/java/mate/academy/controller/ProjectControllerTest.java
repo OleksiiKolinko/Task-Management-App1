@@ -5,8 +5,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -124,7 +124,7 @@ public class ProjectControllerTest {
     @Sql(scripts = ADD_DATA_PROJECT, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = REMOVE_ALL_PROJECT, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void updateProject_Valid_ReturnResponseProjectDto() {
-        final MvcResult result = mockMvc.perform(put(URL_PROJECTS_1).content(objectMapper
+        final MvcResult result = mockMvc.perform(patch(URL_PROJECTS_1).content(objectMapper
                         .writeValueAsString(new UpdateProjectDto(UPDATE_PROJECT_NAME,
                                 PROJECT_DESCRIPTION, START_DATE, END_DATE, IN_PROGRESS)))
                 .contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk()).andReturn();
@@ -134,7 +134,7 @@ public class ProjectControllerTest {
                 PROJECT_DESCRIPTION, START_DATE, END_DATE, IN_PROGRESS));
     }
 
-    @WithMockUser(roles = {MANAGER, USER})
+    @WithMockUser(roles = MANAGER)
     @SneakyThrows
     @Test
     @DisplayName("Verify deleteProject() method works")

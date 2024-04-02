@@ -2,7 +2,6 @@ package mate.academy.service.impl;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -11,19 +10,11 @@ import mate.academy.dto.project.ResponseProjectDto;
 import mate.academy.dto.project.UpdateProjectDto;
 import mate.academy.exception.EntityNotFoundException;
 import mate.academy.mapper.ProjectMapper;
-import mate.academy.model.Attachment;
-import mate.academy.model.Comment;
-import mate.academy.model.Label;
 import mate.academy.model.Project;
 import mate.academy.model.Task;
-import mate.academy.repository.attachment.AttachmentRepository;
-import mate.academy.repository.comment.CommentRepository;
-import mate.academy.repository.label.LabelRepository;
 import mate.academy.repository.project.ProjectRepository;
-import mate.academy.repository.task.TaskRepository;
-import mate.academy.service.DropboxService;
-import mate.academy.service.EmailService;
 import mate.academy.service.ProjectService;
+import mate.academy.service.TaskService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,38 +28,19 @@ public class ProjectServiceImpl implements ProjectService {
     private static final String TASK_ID = "task id ";
     private static final String HAVE_DUE_DATE = " have dueDate at this moment ";
     private static final int ZERO = 0;
-    private static final String DELETED_TASK = "Deleted task";
-    private static final String BODY_TEXT_REMOVED = "Your task removed. The name of task is ";
-    private static final int ONE = 1;
     private static final Project.Status DEFAULT_STATUS = Project.Status.INITIATED;
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
-    private final TaskRepository taskRepository;
-    private final CommentRepository commentRepository;
-    private final AttachmentRepository attachmentRepository;
-    private final DropboxService dropboxService;
-    private final EmailService emailService;
-    private final LabelRepository labelRepository;
+    private final TaskService taskService;
 
     @Override
     public ResponseProjectDto createProject(CreateProjectDto requestDto) {
-        final String nameDto = requestDto.name();
-        if (projectRepository.findByName(nameDto).isPresent()) {
-            throw new EntityNotFoundException("The project with name "
-                    + nameDto + " is exist");
-        }
-        final LocalDate startDateDto = LocalDate.parse(requestDto.startDate());
-        final LocalDate nowDate = LocalDate.now();
-        if (startDateDto.isBefore(nowDate)) {
-            throw new EntityNotFoundException("You can't create project on the previous date."
-            + " You put start date " + startDateDto + " but today " + nowDate);
-        }
-        final Project project = new Project();
-        project.setEndDate(getEndDate(LocalDate.parse(requestDto.endDate()), startDateDto));
-        project.setName(nameDto);
-        project.setDescription(requestDto.description());
-        project.setStartDate(startDateDto);
-        project.setStatus(DEFAULT_STATUS);
+        final String nameDto = getValidName(requestDto.name());
+        final LocalDate startDateDto = getValidStartDate(LocalDate.parse(requestDto.startDate()));
+        final Project project = Project.builder().endDate(
+                getEndDate(LocalDate.parse(requestDto.endDate()), startDateDto)).name(nameDto)
+                .description(requestDto.description()).startDate(startDateDto)
+                .status(DEFAULT_STATUS).build();
         return projectMapper.toResponseProjectDto(getSave(project, nameDto));
     }
 
@@ -81,51 +53,19 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public ResponseProjectDto getProject(Long projectId) {
-        return projectMapper.toResponseProjectDto(projectRepository.findById(projectId).orElseThrow(
-                () -> new EntityNotFoundException("Can't find project by id: " + projectId)));
+        return projectMapper.toResponseProjectDto(getProjectById(projectId));
     }
 
-    @Transactional
     @Override
     public ResponseProjectDto updateProject(Long projectId, UpdateProjectDto requestDto) {
-        final Project beforeUpdateProject = projectRepository.findById(projectId).orElseThrow(
-                () -> new EntityNotFoundException("Can't find project by id: " + projectId));
-        final String nameBefore = beforeUpdateProject.getName();
-        final String nameDto = requestDto.name();
-        if (projectRepository.findByName(nameDto).isPresent() && !nameDto.equals(nameBefore)) {
-            throw new EntityNotFoundException("The project with name " + nameDto + " is exist");
-        }
-        final LocalDate startDateBefore = beforeUpdateProject.getStartDate();
-        final LocalDate startDateDto = LocalDate.parse(requestDto.startDate());
-        final LocalDate nowDate = LocalDate.now();
-        if (startDateDto.isBefore(nowDate) && !startDateDto.isEqual(startDateBefore)) {
-            throw new EntityNotFoundException(
-                    "Please put correct start date, that is " + startDateBefore
-                            + ", or date from this day: " + nowDate);
-        }
+        final Project beforeUpdateProject = getProjectById(projectId);
+        final String nameDto = updateValidName(requestDto.name(), projectId);
+        final LocalDate startDateDto = updateValidStartDate(LocalDate.parse(requestDto.startDate()),
+                beforeUpdateProject.getStartDate());
         final LocalDate endDateDto = getEndDate(LocalDate.parse(requestDto.endDate()),
                 startDateDto);
-        Set<Task> tasksBadDate = taskRepository.findAllByProjectId(projectId).stream()
-                .filter(t -> t.getDueDate().isBefore(startDateDto)
-                        || t.getDueDate().isAfter(endDateDto))
-                .collect(Collectors.toSet());
-        if (!tasksBadDate.isEmpty()) {
-            final StringBuilder sum = new StringBuilder();
-            final String tasksMustCorrect = tasksBadDate.stream().map(t -> {
-                sum.setLength(ZERO);
-                return sum.append(System.lineSeparator()).append(TASK_ID).append(t.getId())
-                        .append(HAVE_DUE_DATE).append(t.getDueDate());
-            }).collect(Collectors.joining());
-            sum.setLength(ZERO);
-            throw new EntityNotFoundException(sum.append(FIRST_PART_BAD_DUE_DATE)
-                    .append(tasksMustCorrect).toString());
-        }
-        try {
-            beforeUpdateProject.setStatus(Project.Status.valueOf(requestDto.status()));
-        } catch (RuntimeException e) {
-            throw new EntityNotFoundException("The status " + requestDto.status() + " is not exist."
-                        + " There are three statuses: INITIATED, IN_PROGRESS, COMPLETED");
-        }
+        checkTasks(startDateDto, endDateDto, beforeUpdateProject);
+        beforeUpdateProject.setStatus(Project.Status.valueOf(requestDto.status()));
         beforeUpdateProject.setName(nameDto);
         beforeUpdateProject.setDescription(requestDto.description());
         beforeUpdateProject.setStartDate(startDateDto);
@@ -136,38 +76,9 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     @Override
     public void deleteProject(Long projectId) {
-        final Set<Task> tasks = taskRepository.findAllByProjectId(projectId);
-        final Set<List<Comment>> comments = tasks.stream()
-                .map(t -> commentRepository.findByTaskId(t.getId()))
-                .collect(Collectors.toSet());
-        comments.forEach(cs -> cs.forEach(c -> commentRepository.deleteById(c.getId())));
-        final Set<List<Attachment>> attachments = tasks.stream()
-                .map(t -> attachmentRepository.findAllByTaskId(t.getId()))
-                .collect(Collectors.toSet());
-        attachments.forEach(as -> as.forEach(a -> {
-            dropboxService.delete(a.getDropboxFileId());
-            attachmentRepository.deleteById(a.getId());
-        }));
-        tasks.forEach(task -> {
-            final Long taskId = task.getId();
-            final Optional<Label> label = labelRepository.findByTasksId(taskId);
-            if (label.isPresent()) {
-                if (label.get().getTasks().size() > ONE) {
-                    label.get().setTasks(label.get().getTasks().stream()
-                            .filter(t -> !t.equals(task))
-                            .collect(Collectors.toSet()));
-                    labelRepository.save(label.get());
-                } else {
-                    labelRepository.delete(label.get());
-                }
-            }
-        });
-        tasks.forEach(t -> {
-            emailService.sendEmail(t.getAssignee().getEmail(), DELETED_TASK,
-                    BODY_TEXT_REMOVED + t.getName());
-            taskRepository.deleteById(t.getId());
-        });
+        final Set<Task> tasks = getProjectById(projectId).getTasks();
         projectRepository.deleteById(projectId);
+        tasks.forEach(taskService::deleteFilesLabelIfTasksIsEmptyAndSendEmail);
     }
 
     private Project getSave(Project project, String nameDto) {
@@ -186,5 +97,65 @@ public class ProjectServiceImpl implements ProjectService {
                     + " You put end date " + endDateDto + " and start date " + startDateDto);
         }
         return endDateDto;
+    }
+
+    private String getValidName(String name) {
+        projectRepository.findByName(name).ifPresent((foundProject) -> {
+            throw new EntityNotFoundException("The project with name "
+                    + name + " is exist");
+        });
+        return name;
+    }
+
+    private LocalDate getValidStartDate(LocalDate startDate) {
+        final LocalDate nowDate = LocalDate.now();
+        if (startDate.isBefore(nowDate)) {
+            throw new EntityNotFoundException("You can't create project on the previous date."
+                    + " You put start date " + startDate + " but today " + nowDate);
+        }
+        return startDate;
+    }
+
+    private String updateValidName(String name, Long projectId) {
+        projectRepository.findByName(name).ifPresent((foundProject) -> {
+            if (!foundProject.getId().equals(projectId)) {
+                throw new EntityNotFoundException("The project with name " + name + " is exist");
+            }
+        });
+        return name;
+    }
+
+    private LocalDate updateValidStartDate(LocalDate startDateDto, LocalDate startDateBefore) {
+        final LocalDate nowDate = LocalDate.now();
+        if (startDateDto.isBefore(nowDate) && !startDateDto.isEqual(startDateBefore)) {
+            throw new EntityNotFoundException(
+                    "Please put correct start date, that is " + startDateBefore
+                            + ", or date from this day: " + nowDate);
+        }
+        return startDateDto;
+    }
+
+    private void checkTasks(LocalDate startDateDto, LocalDate endDateDto, Project project) {
+        final Set<Task> tasksBadDate = project.getTasks().stream()
+                .filter(task -> task.getDueDate().isBefore(startDateDto)
+                        || task.getDueDate().isAfter(endDateDto))
+                .collect(Collectors.toSet());
+        if (!tasksBadDate.isEmpty()) {
+            final StringBuilder sum = new StringBuilder();
+            final String tasksMustCorrect = tasksBadDate.stream().map(taskBadDate -> {
+                sum.setLength(ZERO);
+                return sum.append(System.lineSeparator()).append(TASK_ID)
+                        .append(taskBadDate.getId()).append(HAVE_DUE_DATE)
+                        .append(taskBadDate.getDueDate());
+            }).collect(Collectors.joining());
+            sum.setLength(ZERO);
+            throw new EntityNotFoundException(sum.append(FIRST_PART_BAD_DUE_DATE)
+                    .append(tasksMustCorrect).toString());
+        }
+    }
+
+    private Project getProjectById(Long projectId) {
+        return projectRepository.findById(projectId).orElseThrow(
+                () -> new EntityNotFoundException("Can't find project by id: " + projectId));
     }
 }

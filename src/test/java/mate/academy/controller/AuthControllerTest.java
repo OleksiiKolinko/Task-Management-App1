@@ -8,7 +8,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.HashSet;
 import java.util.Set;
 import lombok.SneakyThrows;
 import mate.academy.config.SpringSecurityWebAuxTestConfig;
@@ -68,7 +67,8 @@ public class AuthControllerTest {
     @Sql(scripts = REMOVE_USER_AFTER_REGISTER,
             executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     public void register_Valid_ReturnUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole expect = getUserResponseDtoWithRole();
+        final UserResponseDtoWithRole expect = new UserResponseDtoWithRole(TWO_ID, USER, EMAIL,
+                FIRST_NAME, LAST_NAME, Set.of(WITHOUT_ROLE));
         final UserRegistrationRequestDto requestDto = new UserRegistrationRequestDto(USER, PASSWORD,
                 PASSWORD, EMAIL, FIRST_NAME, LAST_NAME);
         final String jsonRequest = objectMapper.writeValueAsString(requestDto);
@@ -93,16 +93,4 @@ public class AuthControllerTest {
         assertThat(result.getResponse().getContentAsString().length()).isEqualTo(LENGTH);
     }
 
-    private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USER);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(WITHOUT_ROLE);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
-    }
 }

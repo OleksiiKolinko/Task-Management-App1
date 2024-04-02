@@ -20,18 +20,21 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserLoginResponseDto authentication(UserLoginRequestDto request) {
-        final String nameRequest = request.username();
+    public UserLoginResponseDto authentication(UserLoginRequestDto requestDto) {
+        final String nameRequest = requestDto.username();
         final User user = userRepository.findByUsername(nameRequest).orElseThrow(
-                () -> new EntityNotFoundException("Don't find user with username "
-                        + nameRequest)
-        );
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+                () -> new EntityNotFoundException("Didn't find user with username "
+                        + nameRequest));
+        checkPassword(requestDto.password(), user.getPassword());
+        final Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(requestDto.username(),
+                        requestDto.password()));
+        return new UserLoginResponseDto(jwtUtil.generateToken(authentication.getName()));
+    }
+
+    private void checkPassword(String requestDtoPassword, String userPassword) {
+        if (!passwordEncoder.matches(requestDtoPassword, userPassword)) {
             throw new EntityNotFoundException("Wrong password");
         }
-        final Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password()));
-        String token = jwtUtil.generateToken(authentication.getName());
-        return new UserLoginResponseDto(token);
     }
 }

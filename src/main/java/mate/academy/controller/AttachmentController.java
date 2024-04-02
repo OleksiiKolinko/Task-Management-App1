@@ -30,34 +30,35 @@ public class AttachmentController {
     private final AttachmentService attachmentService;
 
     @Operation(summary = "Upload comment",
-            description = "Upload comment can do users with ROLE_USER")
+            description = "Upload comment can do users with ROLE_USER and ROLE_MANAGER")
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public AttachmentResponseDto uploadFile(@Valid AttachmentRequestDto requestDto,
                                             Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        return attachmentService.uploadFile(requestDto, user.getId());
+        return attachmentService.uploadFile(requestDto, getUserId(authentication));
     }
 
     @Operation(summary = "Retrieve attachments",
             description = "Show all attachments with downloads links. Can search by task."
-                    + " This allowed for users with ROLE_USER")
+                    + " This allowed for users with ROLE_USER and ROLE_MANAGER")
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public Page<AllAttachmentsResponseDto> getAllFiles(Pageable pageable,
             Authentication authentication, TaskSearchParameters searchParameters) {
-        User user = (User) authentication.getPrincipal();
-        return attachmentService.getAllFiles(pageable, searchParameters, user.getId());
+        return attachmentService.getAllFiles(pageable, searchParameters, getUserId(authentication));
     }
 
     @Operation(summary = "Delete attachment",
             description = "Delete attachment by particular id."
-                    + " This allowed for users with ROLE_USER")
+                    + " This allowed for users with ROLE_USER and ROLE_MANAGER")
     @DeleteMapping("/{attachmentId}")
-    @PreAuthorize("hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_MANAGER')")
     public void deleteById(@PathVariable Long attachmentId, Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        attachmentService.deleteById(attachmentId, user.getId());
+        attachmentService.deleteById(attachmentId, getUserId(authentication));
     }
 
+    private Long getUserId(Authentication authentication) {
+        final User user = (User) authentication.getPrincipal();
+        return user.getId();
+    }
 }

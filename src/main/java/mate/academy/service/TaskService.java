@@ -4,6 +4,7 @@ import java.util.List;
 import mate.academy.dto.task.ResponseTaskDto;
 import mate.academy.dto.task.TaskDtoCreate;
 import mate.academy.dto.task.TaskSearchParameters;
+import mate.academy.model.Task;
 import org.springframework.data.domain.Pageable;
 
 public interface TaskService {
@@ -16,4 +17,6 @@ public interface TaskService {
     ResponseTaskDto updateTaskById(Long taskId, TaskDtoCreate requestDto);
 
     void deleteById(Long taskId);
+
+    void deleteFilesLabelIfTasksIsEmptyAndSendEmail(Task task);
 }

@@ -13,8 +13,8 @@ import mate.academy.service.UserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,7 +30,7 @@ public class UserController {
     @Operation(summary = "Update roles",
             description = "Update roles can do only users with ROLE_ADMIN")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PutMapping("/{userId}/role")
+    @PatchMapping("/{userId}/role")
     public UserResponseDtoWithRole updateRole(@PathVariable Long userId,
                                               @RequestBody @Valid RoleDto roleDto) {
         return userService.updateRole(userId, roleDto);
@@ -39,17 +39,20 @@ public class UserController {
     @Operation(summary = "Receive profile info", description = "Watching information about user")
     @GetMapping("/me")
     public UserResponseDtoWithRole getProfileInfo(Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        return userService.getProfileInfo(user.getId());
+        return userService.getProfileInfo(getUserId(authentication));
     }
 
     @Operation(summary = "Update profile info", description = "Update information about user")
-    @PutMapping("/me")
+    @PatchMapping("/me")
     public UserResponseDtoWithRole updateProfileInfo(
              Authentication authentication,
             @RequestBody @Valid UserRegistrationRequestDto requestDto)
             throws RegistrationException {
-        User user = (User) authentication.getPrincipal();
-        return userService.updateProfileInfo(user.getId(), requestDto);
+        return userService.updateProfileInfo(getUserId(authentication), requestDto);
+    }
+
+    private Long getUserId(Authentication authentication) {
+        final User user = (User) authentication.getPrincipal();
+        return user.getId();
     }
 }

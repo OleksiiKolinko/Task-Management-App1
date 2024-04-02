@@ -11,7 +11,6 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -25,8 +24,6 @@ import mate.academy.model.Project;
 import mate.academy.model.Role;
 import mate.academy.model.Task;
 import mate.academy.model.User;
-import mate.academy.repository.attachment.AttachmentRepository;
-import mate.academy.repository.comment.CommentRepository;
 import mate.academy.repository.label.LabelRepository;
 import mate.academy.repository.project.ProjectRepository;
 import mate.academy.repository.role.RoleRepository;
@@ -73,10 +70,12 @@ public class TaskServiceTest {
     private static final Long THREE_ID = 3L;
     private static final Long FOUR_ID = 4L;
     private static final int TWO = 2;
+    private static final Role.RoleName ROLE_NAME_MANAGER = Role.RoleName.ROLE_MANAGER;
+    private static final Role.RoleName ROLE_NAME_USER = Role.RoleName.ROLE_USER;
     @Mock
     private TaskRepository taskRepository;
     @Mock
-    private EmailService emailService;
+    private EmailMessageUtil emailMessageUtil;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -88,11 +87,9 @@ public class TaskServiceTest {
     @Mock
     private ProjectRepository projectRepository;
     @Mock
-    private CommentRepository commentRepository;
+    private LabelService labelService;
     @Mock
     private LabelRepository labelRepository;
-    @Mock
-    private AttachmentRepository attachmentRepository;
     @InjectMocks
     private TaskServiceImpl taskService;
 
@@ -180,42 +177,23 @@ public class TaskServiceTest {
     @DisplayName("Verify deleteById() method works")
     public void deleteById_Valid_Deleted() {
         when(taskRepository.findById(anyLong())).thenReturn(Optional.of(getTask()));
-        when(commentRepository.findByTaskId(anyLong())).thenReturn(new ArrayList<>());
-        when(labelRepository.findByTasksId(anyLong())).thenReturn(Optional.empty());
         taskService.deleteById(ONE_ID);
         verify(taskRepository, times(ONE)).findById(anyLong());
-        verify(commentRepository, times(ONE)).findByTaskId(anyLong());
-        verify(labelRepository, times(ONE)).findByTasksId(anyLong());
         verify(taskRepository, times(ONE)).deleteById(anyLong());
-        verify(attachmentRepository, times(ONE)).findAllByTaskId(anyLong());
-        verifyNoMoreInteractions(taskRepository, commentRepository,
-                labelRepository, attachmentRepository);
+        verify(labelRepository, times(ONE)).deleteByTasksIsEmpty();
+        verifyNoMoreInteractions(taskRepository, labelService, labelRepository);
     }
 
     private Task getUpdatedTask() {
-        final Task task = new Task();
-        task.setId(ONE_ID);
-        task.setName(UPDATE_TASK_NAME);
-        task.setDescription(TASK_DESCRIPTION);
-        task.setPriority(Task.Priority.MEDIUM);
-        task.setStatus(Task.Status.IN_PROGRESS);
-        task.setDueDate(LocalDate.of(DUE_YEAR,ONE,ONE));
-        task.setProject(getProject());
-        task.setAssignee(getAssignee());
-        return task;
+        return Task.builder().id(ONE_ID).name(UPDATE_TASK_NAME).description(TASK_DESCRIPTION)
+                .priority(Task.Priority.MEDIUM).status(Task.Status.IN_PROGRESS).dueDate(
+                        LocalDate.of(DUE_YEAR,ONE,ONE)).project(getProject())
+                .assignee(getAssignee()).build();
     }
 
     private ResponseTaskDto getUpdatedResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(UPDATE_TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(getResponseProjectDto());
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
+        return new ResponseTaskDto(ONE_ID, UPDATE_TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, getResponseProjectDto(), getUserResponseDtoWithRole());
     }
 
     private Role getRoleAdmin() {
@@ -243,30 +221,13 @@ public class TaskServiceTest {
     }
 
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(getResponseProjectDto());
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME, TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, getResponseProjectDto(), getUserResponseDtoWithRole());
     }
 
     private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(ONE_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new UserResponseDtoWithRole(ONE_ID, USERNAME, EMAIL, FIRST_NAME, LAST_NAME,
+                Set.of(ROLE_USER, ROLE_MANAGER));
     }
 
     private ResponseProjectDto getResponseProjectDto() {
@@ -275,55 +236,30 @@ public class TaskServiceTest {
     }
 
     private Task getTask() {
-        final Task task = new Task();
-        task.setId(ONE_ID);
-        task.setName(TASK_NAME);
-        task.setDescription(TASK_DESCRIPTION);
-        task.setPriority(Task.Priority.MEDIUM);
-        task.setStatus(Task.Status.IN_PROGRESS);
-        task.setDueDate(LocalDate.of(DUE_YEAR,ONE,ONE));
-        task.setProject(getProject());
-        task.setAssignee(getAssignee());
-        return task;
+        return Task.builder().id(ONE_ID).name(TASK_NAME).description(TASK_DESCRIPTION).priority(
+                        Task.Priority.MEDIUM).status(Task.Status.IN_PROGRESS).dueDate(
+                                LocalDate.of(DUE_YEAR,ONE,ONE)).project(getProject())
+                .assignee(getAssignee()).attachments(new ArrayList<>()).build();
     }
 
     private User getAssignee() {
-        final User user = new User();
-        user.setId(ONE_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(getRoles());
-        return user;
+        return User.builder().id(ONE_ID).username(USERNAME).password(PASSWORD).email(EMAIL)
+                .firstName(FIRST_NAME).lastName(LAST_NAME).roles(getRoles()).build();
     }
 
     private Set<Role> getRoles() {
         final Role roleUser = new Role();
         roleUser.setId(THREE_ID);
-        roleUser.setName(Role.RoleName.ROLE_USER);
-        Set<Role> roles = new HashSet<>();
-        roles.add(roleUser);
-        roles.add(getRoleManager());
-        return roles;
-    }
-
-    private Role getRoleManager() {
+        roleUser.setName(ROLE_NAME_USER);
         final Role roleManager = new Role();
         roleManager.setId(TWO_ID);
-        roleManager.setName(Role.RoleName.ROLE_MANAGER);
-        return roleManager;
+        roleManager.setName(ROLE_NAME_MANAGER);
+        return Set.of(roleUser, roleManager);
     }
 
     private Project getProject() {
-        final Project project = new Project();
-        project.setId(ONE_ID);
-        project.setName(PROJECT_NAME);
-        project.setDescription(PROJECT_DESCRIPTION);
-        project.setStartDate(LocalDate.of(START_YEAR,ONE,ONE));
-        project.setEndDate(LocalDate.of(END_YEAR,ONE, ONE));
-        project.setStatus(Project.Status.IN_PROGRESS);
-        return project;
+        return Project.builder().id(ONE_ID).name(PROJECT_NAME).description(PROJECT_DESCRIPTION)
+                .startDate(LocalDate.of(START_YEAR,ONE,ONE)).endDate(
+                        LocalDate.of(END_YEAR,ONE, ONE)).status(Project.Status.IN_PROGRESS).build();
     }
 }

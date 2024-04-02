@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import mate.academy.dto.user.RoleDto;
@@ -39,15 +38,17 @@ public class UserServiceTest {
     private static final String EMAIL = "email@example.com";
     private static final String FIRST_NAME = "firstName";
     private static final String LAST_NAME = "lastName";
-    private static final String ROLE_USER = "ROLE_USER";
     private static final String PASSWORD = "password";
     private static final String ROLE_MANAGER = "ROLE_MANAGER";
     private static final String WITHOUT_ROLE = "WITHOUT_ROLE";
     private static final Long TWO_ID = 2L;
+    private static final Role.RoleName ROLE_NAME_MANAGER = Role.RoleName.ROLE_MANAGER;
+    private static final Role.RoleName ROLE_NAME_USER = Role.RoleName.ROLE_USER;
+    private static final Role.RoleName ROLE_NAME_WITHOUT = Role.RoleName.WITHOUT_ROLE;
     @Mock
     private UserRepository userRepository;
     @Mock
-    private EmailService emailService;
+    private EmailMessageUtil emailMessageUtil;
     @Mock
     private RoleRepository roleRepository;
     @Mock
@@ -65,7 +66,7 @@ public class UserServiceTest {
         when(passwordEncoder.encode(anyString())).thenReturn(PASSWORD);
         when(userRepository.save(any(User.class))).thenReturn(getRegisterdUser());
         when(userMapper.toUserResponseWithRole(any(User.class)))
-                .thenReturn(getUserResponseDtoWithRole());
+                .thenReturn(getRegisteredUserResponseDtoWithRole());
         when(userRepository.findById(anyLong())).thenReturn(Optional.of(getRegisterdUser()));
         final UserResponseDtoWithRole actual = userService.register(
                 new UserRegistrationRequestDto(USERNAME, PASSWORD, PASSWORD,
@@ -85,9 +86,9 @@ public class UserServiceTest {
     @DisplayName("Verify updateRole() method works")
     public void updateRole_Valid_ReturnUserResponseDtoWithRole() {
         final UserResponseDtoWithRole expect = getUserResponseDtoWithRole();
-        when(roleRepository.findByName(Role.RoleName.valueOf(ROLE_USER)))
-                .thenReturn(getRoles().stream().findFirst());
-        when(roleRepository.findByName(Role.RoleName.valueOf(ROLE_MANAGER)))
+        when(roleRepository.findByName(ROLE_NAME_USER))
+                .thenReturn(Optional.of(getRoleUser()));
+        when(roleRepository.findByName(ROLE_NAME_MANAGER))
                 .thenReturn(Optional.of(getRoleManager()));
         when(userRepository.findById(anyLong())).thenReturn(Optional.of(getRegisterdUser()));
         when(userRepository.save(any(User.class))).thenReturn(getAssignee());
@@ -96,8 +97,8 @@ public class UserServiceTest {
         final UserResponseDtoWithRole actual = userService.updateRole(TWO_ID,
                 new RoleDto(Set.of(ROLE_MANAGER)));
         assertThat(actual).isEqualTo(expect);
-        verify(roleRepository, times(ONE)).findByName(Role.RoleName.valueOf(ROLE_USER));
-        verify(roleRepository, times(ONE)).findByName(Role.RoleName.valueOf(ROLE_MANAGER));
+        verify(roleRepository, times(ONE)).findByName(ROLE_NAME_USER);
+        verify(roleRepository, times(ONE)).findByName(ROLE_NAME_MANAGER);
         verify(userRepository, times(ONE)).findById(anyLong());
         verify(userRepository, times(ONE)).save(any(User.class));
         verify(userMapper, times(ONE)).toUserResponseWithRole(any(User.class));
@@ -139,100 +140,53 @@ public class UserServiceTest {
     }
 
     private User getUpdatedUser() {
-        final User user = new User();
-        user.setId(TWO_ID);
-        user.setUsername(UPDATE_USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(getRoles());
-        return user;
+        return User.builder().id(TWO_ID).username(UPDATE_USERNAME).password(PASSWORD).email(EMAIL)
+                .firstName(FIRST_NAME).lastName(LAST_NAME).roles(Set.of(getRoleUser())).build();
     }
 
     private UserResponseDtoWithRole getUpdatedUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(UPDATE_USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new UserResponseDtoWithRole(TWO_ID, UPDATE_USERNAME, EMAIL, FIRST_NAME, LAST_NAME,
+                Set.of(ROLE_MANAGER));
     }
 
     private User getRegisterdUser() {
-        final User user = new User();
-        user.setId(TWO_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(Set.of(getDefaultRole()));
-        return user;
+        return User.builder().id(TWO_ID).username(USERNAME).password(PASSWORD).email(EMAIL)
+                .firstName(FIRST_NAME).lastName(LAST_NAME).roles(Set.of(getDefaultRole())).build();
     }
 
     private UserResponseDtoWithRole getRegisteredUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(WITHOUT_ROLE);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new UserResponseDtoWithRole(TWO_ID, USERNAME, EMAIL, FIRST_NAME, LAST_NAME,
+                Set.of(WITHOUT_ROLE));
     }
 
     private Role getDefaultRole() {
         final Role roleDefault = new Role();
         roleDefault.setId(ONE_ID);
-        roleDefault.setName(Role.RoleName.WITHOUT_ROLE);
+        roleDefault.setName(ROLE_NAME_WITHOUT);
         return roleDefault;
     }
 
     private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new UserResponseDtoWithRole(TWO_ID, USERNAME, EMAIL, FIRST_NAME, LAST_NAME,
+                Set.of(ROLE_MANAGER));
     }
 
     private User getAssignee() {
-        final User user = new User();
-        user.setId(TWO_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(getRoles());
-        return user;
+        return User.builder().id(TWO_ID).username(USERNAME).password(PASSWORD).email(EMAIL)
+                .firstName(FIRST_NAME).lastName(LAST_NAME).roles(Set.of(getRoleUser())).build();
     }
 
-    private Set<Role> getRoles() {
+    private Role getRoleUser() {
         final Role roleUser = new Role();
         roleUser.setId(THREE_ID);
-        roleUser.setName(Role.RoleName.ROLE_USER);
-        Set<Role> roles = new HashSet<>();
-        roles.add(getRoleManager());
-        return roles;
+        roleUser.setName(ROLE_NAME_USER);
+        return roleUser;
     }
 
     private Role getRoleManager() {
         final Role roleManager = new Role();
         roleManager.setId(TWO_ID);
-        roleManager.setName(Role.RoleName.ROLE_MANAGER);
+        roleManager.setName(ROLE_NAME_MANAGER);
         return roleManager;
     }
 }

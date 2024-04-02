@@ -21,31 +21,36 @@ public class TaskSpecificationBuilder implements SpecificationBuilder<Task> {
     public Specification<Task> build(TaskSearchParameters searchParameters) {
         Specification<Task> spec = Specification.where(null);
         if (searchParameters.taskIds() != null && searchParameters.taskIds().length > 0) {
-            spec = spec.and(taskSpecificationProviderManager.getSpecificationProviderLong(ID)
-                    .getSpecificationLong(searchParameters.taskIds()));
+            spec = getSpecificationLong(spec, ID, searchParameters.taskIds());
         }
         if (searchParameters.names() != null && searchParameters.names().length > 0) {
-            spec = spec.and(taskSpecificationProviderManager.getSpecificationProviderString(NAME)
-                    .getSpecificationString(searchParameters.names()));
+            spec = getSpecificationString(spec, NAME, searchParameters.names());
         }
         if (searchParameters.projectIds() != null && searchParameters.projectIds().length > 0) {
-            spec = spec.and(taskSpecificationProviderManager.getSpecificationProviderLong(PROJECT)
-                    .getSpecificationLong(searchParameters.projectIds()));
+            spec = getSpecificationLong(spec, PROJECT, searchParameters.projectIds());
         }
         if (searchParameters.projectNames() != null && searchParameters.projectNames().length > 0) {
-            spec = spec.and(taskSpecificationProviderManager.getSpecificationProviderString(PROJECT)
-                    .getSpecificationString(searchParameters.projectNames()));
+            spec = getSpecificationString(spec, PROJECT, searchParameters.projectNames());
         }
         if (searchParameters.assigneeIds() != null && searchParameters.assigneeIds().length > 0) {
-            spec = spec.and(taskSpecificationProviderManager.getSpecificationProviderLong(ASSIGNEE)
-                    .getSpecificationLong(searchParameters.assigneeIds()));
+            spec = getSpecificationLong(spec, ASSIGNEE, searchParameters.assigneeIds());
         }
         if (searchParameters.assigneeNames() != null
                 && searchParameters.assigneeNames().length > 0) {
-            spec = spec
-                    .and(taskSpecificationProviderManager.getSpecificationProviderString(ASSIGNEE)
-                    .getSpecificationString(searchParameters.assigneeNames()));
+            spec = getSpecificationString(spec, ASSIGNEE, searchParameters.assigneeNames());
         }
         return spec;
+    }
+
+    private Specification<Task> getSpecificationString(Specification<Task> spec, String keyString,
+                                                       String[] stringParameters) {
+        return spec.and(taskSpecificationProviderManager.getSpecificationProviderString(keyString)
+                .getSpecificationString(stringParameters));
+    }
+
+    private Specification<Task> getSpecificationLong(Specification<Task> spec,
+                                                     String keyLong, Long[] longParameters) {
+        return spec.and(taskSpecificationProviderManager.getSpecificationProviderLong(keyLong)
+                .getSpecificationLong(longParameters));
     }
 }

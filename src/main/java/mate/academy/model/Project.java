@@ -7,9 +7,19 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
 
@@ -18,6 +28,11 @@ import org.hibernate.annotations.Where;
 @SQLDelete(sql = "UPDATE projects SET is_deleted = true WHERE id = ?")
 @Where(clause = "is_deleted = false")
 @Table(name = "projects")
+@ToString(exclude = "tasks")
+@EqualsAndHashCode(exclude = "tasks")
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Project {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,6 +48,9 @@ public class Project {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "varchar(255)")
     private Status status;
+    @OneToMany(mappedBy = "project", orphanRemoval = true)
+    @Fetch(FetchMode.JOIN)
+    private Set<Task> tasks = new HashSet<>();
     @Column(name = "is_deleted")
     private boolean isDeleted;
 

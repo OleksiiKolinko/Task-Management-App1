@@ -11,8 +11,11 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
@@ -24,6 +27,11 @@ import org.hibernate.annotations.Where;
 @SQLDelete(sql = "UPDATE labels SET is_deleted = true WHERE id = ?")
 @Where(clause = "is_deleted = false")
 @Table(name = "labels")
+@ToString(exclude = "tasks")
+@EqualsAndHashCode(exclude = "tasks")
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Label {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,8 +41,6 @@ public class Label {
     @Column(nullable = false)
     private String color;
     @OneToMany
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
     @Fetch(value = FetchMode.JOIN)
     @JoinTable(name = "labels_tasks",
             joinColumns = @JoinColumn(name = "label_id", nullable = false),

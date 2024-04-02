@@ -2,6 +2,7 @@ package mate.academy.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -12,7 +13,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -73,10 +73,10 @@ public class CommentServiceTest {
     private static final PageRequest PAGEABLE = PageRequest.of(0, 50);
     private static final String ROLE_MANAGER = "ROLE_MANAGER";
     private static final Long TWO_ID = 2L;
-    private static final int TWO = 2;
-    private static final int THREE = 3;
     private static final String TIMESTAMP_1 = "2145-01-01-00-00-00.000";
     private static final String TEXT_1 = "test1";
+    private static final Role.RoleName ROLE_NAME_MANAGER = Role.RoleName.ROLE_MANAGER;
+    private static final Role.RoleName ROLE_NAME_USER = Role.RoleName.ROLE_USER;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -93,6 +93,8 @@ public class CommentServiceTest {
     private TaskMapper taskMapper;
     @Mock
     private TaskSpecificationBuilder taskSpecificationBuilder;
+    @Mock
+    private EmailMessageUtil emailMessageUtil;
     @InjectMocks
     private CommentServiceImpl commentService;
 
@@ -104,7 +106,7 @@ public class CommentServiceTest {
         when(taskRepository.findById(anyLong())).thenReturn(Optional.of(getTask()));
         when(roleRepository.findById(anyLong())).thenReturn(Optional.of(getRoleManager()));
         when(commentRepository.save(any(Comment.class))).thenReturn(getComment());
-        when(paginationUtil.paginateList(PAGEABLE, commentRepository.findByTaskId(anyLong())))
+        when(paginationUtil.paginateList(any(), anyList()))
                 .thenReturn(new PaginationUtilImpl().paginateList(PAGEABLE, List.of(getComment())));
         when(commentMapper.toCommentDto(any(Comment.class)))
                 .thenReturn(getCommentResponseDto().commentDtos().get(ZERO));
@@ -116,12 +118,9 @@ public class CommentServiceTest {
         verify(taskRepository, times(ONE)).findById(anyLong());
         verify(roleRepository, times(ONE)).findById(anyLong());
         verify(commentRepository, times(ONE)).save(any(Comment.class));
-        verify(paginationUtil, times(ONE))
-                .paginateList(PAGEABLE, commentRepository.findByTaskId(anyLong()));
         verify(commentMapper, times((ONE))).toCommentDto(any(Comment.class));
         verify(taskMapper, times(ONE)).toTaskResponseDto(any(Task.class));
         verify(userRepository, times(ONE)).findByRolesId(anyLong());
-        verify(commentRepository, times((THREE))).findByTaskId(anyLong());
         verifyNoMoreInteractions(userRepository, taskRepository, roleRepository,
                 commentRepository, taskMapper, commentMapper, paginationUtil);
     }
@@ -130,9 +129,10 @@ public class CommentServiceTest {
     @DisplayName("Verify getAllComments() method works")
     public void getAllComments_ValidComment_returnPageCommentResponseDto() {
         final Page<CommentResponseDto> expect = getPageCommentResponseDto();
+        final Task task = getTask();
+        task.getComments().add(getComment());
         when(taskRepository.findAll(taskSpecificationBuilder
-                .build(any(TaskSearchParameters.class)))).thenReturn(List.of(getTask()));
-        when(commentRepository.findByTaskId(anyLong())).thenReturn(List.of(getComment()));
+                .build(any(TaskSearchParameters.class)))).thenReturn(List.of(task));
         when(taskMapper.toTaskResponseDto(any(Task.class))).thenReturn(getResponseTaskDto());
         when(commentMapper.toCommentDto(any(Comment.class)))
                 .thenReturn(getCommentResponseDto().commentDtos().get(ZERO));
@@ -143,7 +143,6 @@ public class CommentServiceTest {
         assertThat(actual).isEqualTo(expect);
         verify(taskRepository, times(ONE)).findAll(taskSpecificationBuilder
                 .build(any(TaskSearchParameters.class)));
-        verify(commentRepository, times(TWO)).findByTaskId(anyLong());
         verify(taskMapper, times(ONE)).toTaskResponseDto(any(Task.class));
         verify(commentMapper, times(ONE)).toCommentDto(any(Comment.class));
         verify(paginationUtil, times(ONE)).paginateList(PAGEABLE, List.of(getCommentResponseDto()));
@@ -154,7 +153,9 @@ public class CommentServiceTest {
     @Test
     @DisplayName("Verify deleteById() method works")
     public void deleteById_ValidComment_deleted() {
-        when(commentRepository.findById(anyLong())).thenReturn(Optional.of(getComment()));
+        final Comment comment = getComment();
+        comment.setTask(getTask());
+        when(commentRepository.findById(anyLong())).thenReturn(Optional.of(comment));
         commentService.deleteById(ONE_ID, ONE_ID);
         verify(commentRepository, times(ONE)).deleteById(ONE_ID);
         verifyNoMoreInteractions(commentRepository);
@@ -165,20 +166,14 @@ public class CommentServiceTest {
     }
 
     private Comment getComment() {
-        final Comment comment = new Comment();
-        comment.setId(ONE_ID);
-        comment.setTask(getTask());
-        comment.setUser(getAssignee());
-        comment.setText(TEXT_1);
-        comment.setTimestamp(LocalDateTime.of(COMMENT_YEAR, Month.JANUARY, ONE, ZERO, ZERO, ZERO));
-        return comment;
+        return Comment.builder().id(ONE_ID).user(getAssignee()).text(TEXT_1)
+                .timestamp(LocalDateTime.of(COMMENT_YEAR, Month.JANUARY, ONE, ZERO, ZERO, ZERO))
+                .build();
     }
 
     private CommentResponseDto getCommentResponseDto() {
-        final CommentDto commentDto1 = new CommentDto(ONE_ID, TIMESTAMP_1, USERNAME, TEXT_1);
-        final List<CommentDto> commentDtos = new ArrayList<>();
-        commentDtos.add(commentDto1);
-        return new CommentResponseDto(getResponseTaskDto(),commentDtos);
+        return new CommentResponseDto(getResponseTaskDto(),
+                List.of(new CommentDto(ONE_ID, TIMESTAMP_1, USERNAME, TEXT_1)));
     }
 
     private TaskSearchParameters getTaskSearchParameters() {
@@ -199,83 +194,38 @@ public class CommentServiceTest {
     }
 
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
-                START_DATE, END_DATE, IN_PROGRESS));
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
-    }
-
-    private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(ONE_ID);
-        userResponseDto.setUsername(USERNAME);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        roleDtos.add(ROLE_MANAGER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
+                START_DATE, END_DATE, IN_PROGRESS), new UserResponseDtoWithRole(ONE_ID, USERNAME,
+                EMAIL, FIRST_NAME, LAST_NAME, Set.of(ROLE_USER, ROLE_MANAGER)));
     }
 
     private Task getTask() {
-        final Task task = new Task();
-        task.setId(ONE_ID);
-        task.setName(TASK_NAME);
-        task.setDescription(TASK_DESCRIPTION);
-        task.setPriority(Task.Priority.MEDIUM);
-        task.setStatus(Task.Status.IN_PROGRESS);
-        task.setDueDate(LocalDate.of(DUE_YEAR,ONE,ONE));
-        task.setProject(getProject());
-        task.setAssignee(getAssignee());
-        return task;
+        return Task.builder().id(ONE_ID).name(TASK_NAME).description(TASK_DESCRIPTION).priority(
+                        Task.Priority.MEDIUM).status(Task.Status.IN_PROGRESS).dueDate(
+                                LocalDate.of(DUE_YEAR,ONE,ONE)).project(Project.builder().id(ONE_ID)
+                        .name(PROJECT_NAME).description(PROJECT_DESCRIPTION).startDate(
+                                LocalDate.of(START_YEAR,ONE,ONE)).endDate(LocalDate.of(
+                                        END_YEAR,ONE, ONE)).status(Project.Status.IN_PROGRESS)
+                        .build()).assignee(getAssignee()).comments(new ArrayList<>()).build();
     }
 
     private User getAssignee() {
-        final User user = new User();
-        user.setId(ONE_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(getRoles());
-        return user;
+        return User.builder().id(ONE_ID).username(USERNAME).password(PASSWORD).email(EMAIL)
+                .firstName(FIRST_NAME).lastName(LAST_NAME).roles(getRoles()).build();
     }
 
     private Set<Role> getRoles() {
         final Role roleUser = new Role();
         roleUser.setId(ONE_ID);
-        roleUser.setName(Role.RoleName.ROLE_USER);
-        Set<Role> roles = new HashSet<>();
-        roles.add(roleUser);
-        roles.add(getRoleManager());
-        return roles;
+        roleUser.setName(ROLE_NAME_USER);
+        return Set.of(roleUser, getRoleManager());
     }
 
     private Role getRoleManager() {
         final Role roleManager = new Role();
         roleManager.setId(TWO_ID);
-        roleManager.setName(Role.RoleName.ROLE_MANAGER);
+        roleManager.setName(ROLE_NAME_MANAGER);
         return roleManager;
-    }
-
-    private Project getProject() {
-        final Project project = new Project();
-        project.setId(ONE_ID);
-        project.setName(PROJECT_NAME);
-        project.setDescription(PROJECT_DESCRIPTION);
-        project.setStartDate(LocalDate.of(START_YEAR,ONE,ONE));
-        project.setEndDate(LocalDate.of(END_YEAR,ONE, ONE));
-        project.setStatus(Project.Status.IN_PROGRESS);
-        return project;
     }
 }

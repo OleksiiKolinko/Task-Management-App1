@@ -21,6 +21,8 @@ public class LabelRepositoryTest {
     private static final String LABEL_NAME = "labelName";
     private static final String COLOR = "color";
     private static final String ADD_DATA_LABEL = "classpath:database/label/add-data-label.sql";
+    private static final String ADD_LABEL_WITHOUT_TASKS =
+            "classpath:database/label/add-data-label-without-tasks.sql";
     private static final String REMOVE_ALL_LABEL = "classpath:database/label/remove-all-label.sql";
     @Autowired
     private LabelRepository labelRepository;
@@ -55,5 +57,14 @@ public class LabelRepositoryTest {
         Assertions.assertEquals(ONE_ID, actual.getTasks().stream()
                 .map(Task::getId)
                 .toList().get(ZERO));
+    }
+
+    @Test
+    @DisplayName("Verify deleteByTasksIsEmpty() method works")
+    @Sql(scripts = ADD_LABEL_WITHOUT_TASKS, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    public void deleteByTasksIsEmpty_Valid_Deleted() {
+        Assertions.assertTrue(labelRepository.findById(ONE_ID).isPresent());
+        labelRepository.deleteByTasksIsEmpty();
+        Assertions.assertTrue(labelRepository.findById(ONE_ID).isEmpty());
     }
 }

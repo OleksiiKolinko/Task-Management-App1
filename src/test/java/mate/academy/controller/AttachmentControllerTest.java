@@ -16,7 +16,6 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.Set;
 import javax.sql.DataSource;
 import lombok.SneakyThrows;
@@ -136,7 +135,8 @@ public class AttachmentControllerTest {
     public void uploadFile_Valid_ReturnAttachmentResponseDto() {
         final MockMultipartFile file = new MockMultipartFile(FILE, FILE_NAME,
                 MediaType.TEXT_PLAIN_VALUE, CONTENT);
-        final AttachmentResponseDto expect = getAttachmentResponseDto();
+        final AttachmentResponseDto expect = new AttachmentResponseDto(THREE_ID,
+                getResponseTaskDto(), DROPBOX_FILE_ID, FILE_NAME, LocalDateTime.now().toString());
         when(dropboxService.upload(anyString(),any(InputStream.class))).thenReturn(DROPBOX_FILE_ID);
         final MvcResult result = mockMvc.perform(multipart(URL_POST_ATTACHMENTS)
                 .file(file)
@@ -195,35 +195,10 @@ public class AttachmentControllerTest {
         }
     }
 
-    private AttachmentResponseDto getAttachmentResponseDto() {
-        return new AttachmentResponseDto(THREE_ID, getResponseTaskDto(),
-                DROPBOX_FILE_ID, FILE_NAME, LocalDateTime.now().toString());
-    }
-
     private ResponseTaskDto getResponseTaskDto() {
-        final ResponseTaskDto responseTaskDto = new ResponseTaskDto();
-        responseTaskDto.setId(ONE_ID);
-        responseTaskDto.setName(TASK_NAME);
-        responseTaskDto.setDescription(TASK_DESCRIPTION);
-        responseTaskDto.setPriority(MEDIUM);
-        responseTaskDto.setStatus(IN_PROGRESS);
-        responseTaskDto.setDueDate(DUE_DATE);
-        responseTaskDto.setProject(new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
-                START_DATE, END_DATE, INITIATED));
-        responseTaskDto.setAssignee(getUserResponseDtoWithRole());
-        return responseTaskDto;
-    }
-
-    private UserResponseDtoWithRole getUserResponseDtoWithRole() {
-        final UserResponseDtoWithRole userResponseDto = new UserResponseDtoWithRole();
-        userResponseDto.setId(TWO_ID);
-        userResponseDto.setUsername(USER);
-        userResponseDto.setEmail(EMAIL);
-        userResponseDto.setFirstName(FIRST_NAME);
-        userResponseDto.setLastName(LAST_NAME);
-        Set<String> roleDtos = new HashSet<>();
-        roleDtos.add(ROLE_USER);
-        userResponseDto.setRoleDtos(roleDtos);
-        return userResponseDto;
+        return new ResponseTaskDto(ONE_ID, TASK_NAME,TASK_DESCRIPTION, MEDIUM, IN_PROGRESS,
+                DUE_DATE, new ResponseProjectDto(ONE_ID, PROJECT_NAME, PROJECT_DESCRIPTION,
+                START_DATE, END_DATE, INITIATED), new UserResponseDtoWithRole(TWO_ID, USER,
+                EMAIL, FIRST_NAME, LAST_NAME, Set.of(ROLE_USER)));
     }
 }

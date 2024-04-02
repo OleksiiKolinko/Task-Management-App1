@@ -6,7 +6,7 @@ import mate.academy.dto.attachment.AttachmentResponseDto;
 import mate.academy.model.Attachment;
 import org.mapstruct.Mapper;
 
-@Mapper(config = MapperConfig.class)
+@Mapper(config = MapperConfig.class, uses = UserMapper.class)
 public interface AttachmentMapper {
     AttachmentResponseDto toAttachmentResponseDto(Attachment attachment);
 

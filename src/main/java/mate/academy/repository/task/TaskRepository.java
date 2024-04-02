@@ -9,7 +9,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
     Optional<Task> findByName(String name);
 
-    Set<Task> findAllByProjectId(Long projectId);
-
     Set<Task> findAllByAssigneeId(Long userId);
 }

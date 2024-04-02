@@ -10,8 +10,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -23,9 +21,6 @@ import mate.academy.model.Project;
 import mate.academy.model.Role;
 import mate.academy.model.Task;
 import mate.academy.model.User;
-import mate.academy.repository.attachment.AttachmentRepository;
-import mate.academy.repository.comment.CommentRepository;
-import mate.academy.repository.label.LabelRepository;
 import mate.academy.repository.project.ProjectRepository;
 import mate.academy.repository.task.TaskRepository;
 import mate.academy.service.impl.PaginationUtilImpl;
@@ -35,9 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
@@ -63,6 +56,8 @@ public class ProjectServiceTest {
     private static final int END_YEAR = 2200;
     private static final PageRequest PAGEABLE = PageRequest.of(0, 20);
     private static final Long TWO_ID = 2L;
+    private static final Role.RoleName ROLE_NAME_MANAGER = Role.RoleName.ROLE_MANAGER;
+    private static final Role.RoleName ROLE_NAME_USER = Role.RoleName.ROLE_USER;
     @Mock
     private ProjectRepository projectRepository;
     @Mock
@@ -70,13 +65,9 @@ public class ProjectServiceTest {
     @Mock
     private TaskRepository taskRepository;
     @Mock
-    private CommentRepository commentRepository;
+    private LabelService labelService;
     @Mock
-    private AttachmentRepository attachmentRepository;
-    @Mock
-    private LabelRepository labelRepository;
-    @Mock
-    private EmailService emailService;
+    private TaskService taskService;
     @InjectMocks
     private ProjectServiceImpl projectService;
 
@@ -101,7 +92,8 @@ public class ProjectServiceTest {
     @DisplayName("Verify getAllProjects() method works")
     public void getAllProjects_Valid_ReturnListResponseProjectDto() {
         final List<ResponseProjectDto> expect = List.of(getResponseProjectDto());
-        when(projectRepository.findAll(any(Pageable.class))).thenReturn(getPageProjects());
+        when(projectRepository.findAll(any(Pageable.class))).thenReturn(new PaginationUtilImpl()
+                .paginateList(PAGEABLE, List.of(getProject())));
         when(projectMapper.toResponseProjectDto(any(Project.class)))
                 .thenReturn(getResponseProjectDto());
         final List<ResponseProjectDto> actual = projectService.getAllProjects(PAGEABLE);
@@ -115,12 +107,12 @@ public class ProjectServiceTest {
     @DisplayName("Verify getProject() method works")
     public void getProject_Valid_ReturnResponseProjectDto() {
         final ResponseProjectDto expect = getResponseProjectDto();
-        when(projectRepository.findById(Mockito.anyLong())).thenReturn(Optional.of(getProject()));
+        when(projectRepository.findById(anyLong())).thenReturn(Optional.of(getProject()));
         when(projectMapper.toResponseProjectDto(any(Project.class)))
                 .thenReturn(getResponseProjectDto());
         final ResponseProjectDto actual = projectService.getProject(ONE_ID);
         assertThat(actual).isEqualTo(expect);
-        verify(projectRepository, times(ONE)).findById(Mockito.anyLong());
+        verify(projectRepository, times(ONE)).findById(anyLong());
         verify(projectMapper, times(ONE)).toResponseProjectDto(any(Project.class));
         verifyNoMoreInteractions(projectRepository, projectMapper);
     }
@@ -129,8 +121,9 @@ public class ProjectServiceTest {
     @DisplayName("Verify updateProject() method works")
     public void updateProject_Valid_ReturnResponseProjectDto() {
         final ResponseProjectDto expect = getUpdatedResponseProjectDto();
-        when(projectRepository.findById(Mockito.anyLong())).thenReturn(Optional.of(getProject()));
-        when(taskRepository.findAllByProjectId(Mockito.anyLong())).thenReturn(Set.of(getTask()));
+        final Project project = getProject();
+        project.setTasks(Set.of(getTask()));
+        when(projectRepository.findById(anyLong())).thenReturn(Optional.of(project));
         when(projectMapper.toResponseProjectDto(any(Project.class)))
                 .thenReturn(getUpdatedResponseProjectDto());
         when(projectRepository.save(any(Project.class))).thenReturn(getUpdatedProject());
@@ -138,8 +131,7 @@ public class ProjectServiceTest {
                 new UpdateProjectDto(UPDATE_PROJECT_NAME, PROJECT_DESCRIPTION,
                         START_DATE, END_DATE, IN_PROGRESS));
         assertThat(actual).isEqualTo(expect);
-        verify(projectRepository, times(ONE)).findById(Mockito.anyLong());
-        verify(taskRepository, times(ONE)).findAllByProjectId(Mockito.anyLong());
+        verify(projectRepository, times(ONE)).findById(anyLong());
         verify(projectMapper, times(ONE)).toResponseProjectDto(any(Project.class));
         verify(projectRepository, times(ONE)).save(any(Project.class));
         verify(projectRepository, times(ONE)).findByName(anyString());
@@ -149,38 +141,25 @@ public class ProjectServiceTest {
     @Test
     @DisplayName("Verify deleteProject() method works")
     public void deleteProject_Valid_Deleted() {
-        when(taskRepository.findAllByProjectId(Mockito.anyLong())).thenReturn(Set.of(getTask()));
-        when(commentRepository.findByTaskId(Mockito.anyLong())).thenReturn(new ArrayList<>());
-        when(labelRepository.findByTasksId(Mockito.anyLong())).thenReturn(Optional.empty());
+        final Project project = getProject();
+        project.setTasks(Set.of(getTask()));
+        when(projectRepository.findById(anyLong())).thenReturn(Optional.of(project));
         projectService.deleteProject(ONE_ID);
-        verify(taskRepository, times(ONE)).findAllByProjectId(Mockito.anyLong());
-        verify(commentRepository, times(ONE)).findByTaskId(Mockito.anyLong());
-        verify(attachmentRepository, times(ONE)).findAllByTaskId(Mockito.anyLong());
-        verify(taskRepository, times(ONE)).deleteById(anyLong());
-        verifyNoMoreInteractions(taskRepository, commentRepository, attachmentRepository);
+        verify(taskService, times(ONE)).deleteFilesLabelIfTasksIsEmptyAndSendEmail(any(Task.class));
+        verify(projectRepository, times(ONE)).deleteById(anyLong());
+        verifyNoMoreInteractions(taskRepository, labelService, projectRepository, taskService);
     }
 
     private Project getUpdatedProject() {
-        final Project project = new Project();
-        project.setId(ONE_ID);
-        project.setName(UPDATE_PROJECT_NAME);
-        project.setDescription(PROJECT_DESCRIPTION);
-        project.setStartDate(LocalDate.of(START_YEAR,ONE,ONE));
-        project.setEndDate(LocalDate.of(END_YEAR,ONE, ONE));
-        project.setStatus(Project.Status.IN_PROGRESS);
-        return project;
+        return Project.builder().id(ONE_ID).name(UPDATE_PROJECT_NAME).description(
+                PROJECT_DESCRIPTION).startDate(LocalDate.of(START_YEAR,ONE,ONE))
+                .endDate(LocalDate.of(END_YEAR,ONE, ONE))
+                .status(Project.Status.IN_PROGRESS).tasks(Set.of(getTask())).build();
     }
 
     private ResponseProjectDto getUpdatedResponseProjectDto() {
         return new ResponseProjectDto(ONE_ID, UPDATE_PROJECT_NAME, PROJECT_DESCRIPTION,
                 START_DATE, END_DATE, IN_PROGRESS);
-    }
-
-    private Page<Project> getPageProjects() {
-        final PaginationUtil paginationUtil = new PaginationUtilImpl();
-        final List<Project> projects = new ArrayList<>();
-        projects.add(getProject());
-        return paginationUtil.paginateList(PAGEABLE, projects);
     }
 
     private ResponseProjectDto getResponseProjectDto() {
@@ -189,55 +168,27 @@ public class ProjectServiceTest {
     }
 
     private Task getTask() {
-        final Task task = new Task();
-        task.setId(ONE_ID);
-        task.setName(TASK_NAME);
-        task.setDescription(TASK_DESCRIPTION);
-        task.setPriority(Task.Priority.MEDIUM);
-        task.setStatus(Task.Status.IN_PROGRESS);
-        task.setDueDate(LocalDate.of(DUE_YEAR,ONE,ONE));
-        task.setProject(getProject());
-        task.setAssignee(getAssignee());
-        return task;
-    }
-
-    private User getAssignee() {
-        final User user = new User();
-        user.setId(ONE_ID);
-        user.setUsername(USERNAME);
-        user.setPassword(PASSWORD);
-        user.setEmail(EMAIL);
-        user.setFirstName(FIRST_NAME);
-        user.setLastName(LAST_NAME);
-        user.setRoles(getRoles());
-        return user;
+        return Task.builder().id(ONE_ID).name(TASK_NAME).description(TASK_DESCRIPTION).priority(
+                        Task.Priority.MEDIUM).status(Task.Status.IN_PROGRESS).dueDate(
+                                LocalDate.of(DUE_YEAR,ONE,ONE)).project(getProject())
+                .assignee(User.builder().id(ONE_ID).username(USERNAME).password(PASSWORD)
+                        .email(EMAIL).firstName(FIRST_NAME).lastName(LAST_NAME)
+                        .roles(getRoles()).build()).build();
     }
 
     private Set<Role> getRoles() {
         final Role roleUser = new Role();
         roleUser.setId(ONE_ID);
-        roleUser.setName(Role.RoleName.ROLE_USER);
-        Set<Role> roles = new HashSet<>();
-        roles.add(roleUser);
-        roles.add(getRoleManager());
-        return roles;
-    }
-
-    private Role getRoleManager() {
+        roleUser.setName(ROLE_NAME_USER);
         final Role roleManager = new Role();
         roleManager.setId(TWO_ID);
-        roleManager.setName(Role.RoleName.ROLE_MANAGER);
-        return roleManager;
+        roleManager.setName(ROLE_NAME_MANAGER);
+        return Set.of(roleUser, roleManager);
     }
 
     private Project getProject() {
-        final Project project = new Project();
-        project.setId(ONE_ID);
-        project.setName(PROJECT_NAME);
-        project.setDescription(PROJECT_DESCRIPTION);
-        project.setStartDate(LocalDate.of(START_YEAR,ONE,ONE));
-        project.setEndDate(LocalDate.of(END_YEAR,ONE, ONE));
-        project.setStatus(Project.Status.IN_PROGRESS);
-        return project;
+        return Project.builder().id(ONE_ID).name(PROJECT_NAME).description(PROJECT_DESCRIPTION)
+                .startDate(LocalDate.of(START_YEAR,ONE,ONE)).endDate(LocalDate.of(
+                        END_YEAR,ONE, ONE)).status(Project.Status.IN_PROGRESS).build();
     }
 }
