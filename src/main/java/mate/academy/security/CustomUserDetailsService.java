@@ -18,5 +18,4 @@ public class CustomUserDetailsService implements UserDetailsService {
         return userRepository.findByUsername(username).orElseThrow(() ->
                 new EntityNotFoundException("The user with name " + username + " is not exist"));
     }
-
 }

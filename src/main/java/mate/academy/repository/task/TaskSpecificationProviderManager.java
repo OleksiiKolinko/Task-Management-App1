@@ -18,7 +18,7 @@ public class TaskSpecificationProviderManager implements SpecificationProviderMa
     @Override
     public SpecificationProviderLong<Task> getSpecificationProviderLong(String key) {
         return taskSpecificationProvidersLong.stream()
-                .filter(p -> p.getKey().equals(key))
+                .filter(providerLong -> providerLong.getKey().equals(key))
                 .findFirst()
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Can't find correct long specification provider for key " + key));
@@ -27,7 +27,7 @@ public class TaskSpecificationProviderManager implements SpecificationProviderMa
     @Override
     public SpecificationProviderString<Task> getSpecificationProviderString(String key) {
         return taskSpecificationProvidersString.stream()
-                .filter(p -> p.getKey().equals(key))
+                .filter(providerString -> providerString.getKey().equals(key))
                 .findFirst()
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Can't find correct string specification provider for key " + key));

@@ -19,5 +19,4 @@ public class TaskSpecificationProvider implements SpecificationProviderLong<Task
     public Specification<Task> getSpecificationLong(Long[] params) {
         return (root, query, criteriaBuilder) -> root.get(ID).in(Arrays.stream(params).toArray());
     }
-
 }

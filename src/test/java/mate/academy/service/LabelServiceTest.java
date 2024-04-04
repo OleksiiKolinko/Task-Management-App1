@@ -192,5 +192,4 @@ public class LabelServiceTest {
         roleManager.setName(ROLE_NAME_MANAGER);
         return Set.of(roleUser, roleManager);
     }
-
 }

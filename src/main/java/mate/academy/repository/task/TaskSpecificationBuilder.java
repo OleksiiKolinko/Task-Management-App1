@@ -20,23 +20,22 @@ public class TaskSpecificationBuilder implements SpecificationBuilder<Task> {
     @Override
     public Specification<Task> build(TaskSearchParameters searchParameters) {
         Specification<Task> spec = Specification.where(null);
-        if (searchParameters.taskIds() != null && searchParameters.taskIds().length > 0) {
+        if (getValidLong(searchParameters.taskIds())) {
             spec = getSpecificationLong(spec, ID, searchParameters.taskIds());
         }
-        if (searchParameters.names() != null && searchParameters.names().length > 0) {
+        if (getValidString(searchParameters.names())) {
             spec = getSpecificationString(spec, NAME, searchParameters.names());
         }
-        if (searchParameters.projectIds() != null && searchParameters.projectIds().length > 0) {
+        if (getValidLong(searchParameters.projectIds())) {
             spec = getSpecificationLong(spec, PROJECT, searchParameters.projectIds());
         }
-        if (searchParameters.projectNames() != null && searchParameters.projectNames().length > 0) {
+        if (getValidString(searchParameters.projectNames())) {
             spec = getSpecificationString(spec, PROJECT, searchParameters.projectNames());
         }
-        if (searchParameters.assigneeIds() != null && searchParameters.assigneeIds().length > 0) {
+        if (getValidLong(searchParameters.assigneeIds())) {
             spec = getSpecificationLong(spec, ASSIGNEE, searchParameters.assigneeIds());
         }
-        if (searchParameters.assigneeNames() != null
-                && searchParameters.assigneeNames().length > 0) {
+        if (getValidString(searchParameters.assigneeNames())) {
             spec = getSpecificationString(spec, ASSIGNEE, searchParameters.assigneeNames());
         }
         return spec;
@@ -52,5 +51,13 @@ public class TaskSpecificationBuilder implements SpecificationBuilder<Task> {
                                                      String keyLong, Long[] longParameters) {
         return spec.and(taskSpecificationProviderManager.getSpecificationProviderLong(keyLong)
                 .getSpecificationLong(longParameters));
+    }
+
+    private boolean getValidLong(Long[] params) {
+        return params != null && params.length > 0;
+    }
+
+    private boolean getValidString(String[] params) {
+        return params != null && params.length > 0;
     }
 }
